@@ -55,7 +55,9 @@ fun main() {
                     doHeartbeat(this@webSocket, sequenceChannel, heartbeatRequest.sequenceNum, heartbeatRequest.data.heartbeatInterval.toLong())
                 }
 
+                // TODO do opcode IDENTIFY and pass token to authenticate WebSocket session
 
+                // TODO start printing messages to console to see what we're dealing with
             }
         }
     }

@@ -8,6 +8,7 @@ data class HeartbeatMessage(
     val heartbeatInterval: Int
 )
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 data class DiscordUser(
     val id: String,
     val username: String,
@@ -62,20 +63,21 @@ data class Secrets(
 data class DiscordUserActivity(
     val name: String,
     val type: Int,
-    val url: String?,
     @JsonProperty("created_at")
     val createdAt: Long,
     val timestamps: Timestamps,
     @JsonProperty("application_id")
-    val applicationID: String?,
-    val details: String?,
-    val state: String?,
-    val emoji: Emoji?,
-    val party: Party?,
-    val assets: Assets?,
-    val secrets: Secrets?,
-    val instance: Boolean?,
-    val flags: Int?
+    val url: String? = null,
+    @JsonProperty()
+    val applicationID: String? = null,
+    val details: String? = null,
+    val state: String? = null,
+    val emoji: Emoji? = null,
+    val party: Party? = null,
+    val assets: Assets? = null,
+    val secrets: Secrets? = null,
+    val instance: Boolean? = null,
+    val flags: Int? = null
 )
 
 data class UnavailableGuild(
@@ -106,7 +108,8 @@ data class IdentifyConnectionProperties(
 
 data class ClientPresenceUpdate(
     val since: Long?,
-
+    val activity: DiscordUserActivity?
+    // More to come later...
 )
 
 data class IdentifyMessage(
