@@ -1,10 +1,10 @@
 package org.erittenhouse.hotmessdetector
 
-import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.DeserializationFeature
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.*
+import com.fasterxml.jackson.module.kotlin.readValue
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import io.github.cdimascio.dotenv.dotenv
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.cio.CIO
 import io.ktor.client.features.json.JacksonSerializer
@@ -30,6 +30,7 @@ fun main() {
         configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)
         configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
     }
+    val environment = dotenv()
 
     runBlocking {
         val client = HttpClient(CIO) {
@@ -55,7 +56,20 @@ fun main() {
                     doHeartbeat(this@webSocket, sequenceChannel, heartbeatRequest.sequenceNum, heartbeatRequest.data.heartbeatInterval.toLong())
                 }
 
-                // TODO do opcode IDENTIFY and pass token to authenticate WebSocket session
+                val token = environment["DP_TOKEN"] ?: error("Could not get token from environment")
+                val identifyPayload = DiscordPayload(
+                    opcode = DiscordOpcode.IDENTIFY,
+                    data = IdentifyMessage(
+                        token = token,
+                        properties = IdentifyConnectionProperties(
+                            operatingSystem = "Linux",
+                            browser = "DiscordPlaytime",
+                            device = "DiscordPlaytime"
+                        ),
+                        intents = DiscordIntent.GUILDS or DiscordIntent.GUILD_PRESENCES,
+                        presence = PresenceUpdate(DiscordStatus.Online)
+                    )
+                )
 
                 // TODO start printing messages to console to see what we're dealing with
             }
@@ -71,7 +85,7 @@ suspend fun doHeartbeat(webSocketSession: ClientWebSocketSession, sequenceChanne
     var lastTimeSent = System.currentTimeMillis() - heartbeatInterval - 100
 
     while (coroutineContext.isActive) {
-        val remainingWaitTime = (heartbeatInterval.toLong() - (System.currentTimeMillis() - lastTimeSent))
+        val remainingWaitTime = (heartbeatInterval - (System.currentTimeMillis() - lastTimeSent))
             .coerceAtLeast(0)
         val shouldSkip = select<Boolean> {
             sequenceChannel.onReceive { seqNum ->

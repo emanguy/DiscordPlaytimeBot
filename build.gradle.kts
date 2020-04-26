@@ -30,11 +30,13 @@ dependencies {
     implementation("com.fasterxml.jackson.core:jackson-databind:2.10.0")
     implementation("com.fasterxml.jackson.core:jackson-annotations:2.10.3")
     implementation("com.fasterxml.jackson.module:jackson-module-kotlin:2.10.2")
+
+    implementation("io.github.cdimascio:java-dotenv:5.1.4")
 }
 
 tasks {
     withType<KotlinCompile> {
-        kotlinOptions.freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn")
+        kotlinOptions.freeCompilerArgs = listOf("-Xopt-in=kotlin.RequiresOptIn", "-Xinline-classes")
     }
     compileKotlin {
         kotlinOptions.jvmTarget = "1.8"

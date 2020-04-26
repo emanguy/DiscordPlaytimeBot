@@ -1,5 +1,7 @@
 package org.erittenhouse.hotmessdetector
 
+import com.fasterxml.jackson.annotation.JsonValue
+
 object DiscordIntent {
     const val GUILDS = 1 shl 0
     const val GUILD_MEMBERS = 1 shl 1
@@ -30,6 +32,14 @@ object DiscordOpcode {
     const val INVALID_SESSION = 9
     const val HELLO = 10
     const val HEARTBEAT_ACK = 11
+}
+
+enum class DiscordStatus(@JsonValue val realValue: String) {
+    Idle("idle"),
+    DoNotDisturb("dnd"),
+    Online("online"),
+    Offline("offline"),
+    Invisible("invisible")
 }
 
 object DiscordEvent {

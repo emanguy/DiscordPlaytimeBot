@@ -48,4 +48,7 @@ gradle-app.setting
 ### Gradle Patch ###
 **/build/
 
+### Dotenv Local Files ###
+/.env
+
 # End of https://www.gitignore.io/api/gradle,kotlin
