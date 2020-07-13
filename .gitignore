@@ -52,3 +52,6 @@ gradle-app.setting
 /.env
 
 # End of https://www.gitignore.io/api/gradle,kotlin
+
+# Sample output data
+/SampleData/

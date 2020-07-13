@@ -1,106 +1,32 @@
 package org.erittenhouse.hotmessdetector
 
-import com.fasterxml.jackson.databind.DeserializationFeature
-import com.fasterxml.jackson.databind.ObjectMapper
-import com.fasterxml.jackson.module.kotlin.readValue
-import com.fasterxml.jackson.module.kotlin.registerKotlinModule
+import com.gitlab.kordlib.common.entity.Snowflake
+import com.gitlab.kordlib.core.Kord
+import com.gitlab.kordlib.core.event.PresenceUpdateEvent
+import com.gitlab.kordlib.core.on
+import com.gitlab.kordlib.gateway.Intent
+import com.gitlab.kordlib.gateway.PrivilegedIntent
 import io.github.cdimascio.dotenv.dotenv
-import io.ktor.client.HttpClient
-import io.ktor.client.engine.cio.CIO
-import io.ktor.client.features.json.JacksonSerializer
-import io.ktor.client.features.json.JsonFeature
-import io.ktor.client.features.websocket.ClientWebSocketSession
-import io.ktor.client.features.websocket.WebSockets
-import io.ktor.client.features.websocket.webSocket
-import io.ktor.http.cio.websocket.Frame
-import io.ktor.http.cio.websocket.close
-import io.ktor.http.cio.websocket.readText
-import io.ktor.http.cio.websocket.send
-import io.ktor.util.KtorExperimentalAPI
-import kotlinx.coroutines.*
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.channels.ReceiveChannel
-import kotlinx.coroutines.channels.SendChannel
-import kotlinx.coroutines.selects.select
-import kotlin.coroutines.coroutineContext
 
-@OptIn(KtorExperimentalAPI::class, ExperimentalCoroutinesApi::class)
-fun main() {
-    val objectSerializer = ObjectMapper().registerKotlinModule().apply {
-        configure(DeserializationFeature.FAIL_ON_IGNORED_PROPERTIES, false)
-        configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-    }
+@OptIn(PrivilegedIntent::class)
+suspend fun main() {
     val environment = dotenv()
-
-    runBlocking {
-        val client = HttpClient(CIO) {
-            install(WebSockets)
-            install(JsonFeature) {
-                serializer = JacksonSerializer()
-            }
-        }
-
-        client.webSocket("wss://gateway.discord.gg/?v=6&encoding=json") {
-            val heartbeatRequestStr = incoming.receive()
-            val heartbeatRequest = if (heartbeatRequestStr is Frame.Text) {
-                objectSerializer.readValue<DiscordPayload<HeartbeatMessage>>(heartbeatRequestStr.readText())
-            } else {
-                close()
-                throw Exception("Got a non-text initial frame!")
-            }
-
-            coroutineScope {
-                val sequenceChannel = Channel<Int>()
-
-                launch {
-                    doHeartbeat(this@webSocket, sequenceChannel, heartbeatRequest.sequenceNum, heartbeatRequest.data.heartbeatInterval.toLong())
-                }
-
-                val token = environment["DP_TOKEN"] ?: error("Could not get token from environment")
-                val identifyPayload = DiscordPayload(
-                    opcode = DiscordOpcode.IDENTIFY,
-                    data = IdentifyMessage(
-                        token = token,
-                        properties = IdentifyConnectionProperties(
-                            operatingSystem = "Linux",
-                            browser = "DiscordPlaytime",
-                            device = "DiscordPlaytime"
-                        ),
-                        intents = DiscordIntent.GUILDS or DiscordIntent.GUILD_PRESENCES,
-                        presence = PresenceUpdate(DiscordStatus.Online)
-                    )
-                )
-
-                // TODO start printing messages to console to see what we're dealing with
-            }
+    val discordToken = environment["DP_TOKEN"] ?: run {
+        println("No token found. Please set the environment variable DP_TOKEN.")
+        return
+    }
+    val discordClient = Kord(discordToken) {
+        intents {
+            +Intent.GuildPresences
         }
     }
-}
 
-@OptIn(ExperimentalCoroutinesApi::class)
-@Suppress("BlockingMethodInNonBlockingContext")
-suspend fun doHeartbeat(webSocketSession: ClientWebSocketSession, sequenceChannel: ReceiveChannel<Int>, initialSequenceNum: Int?, heartbeatInterval: Long) {
-    val objectSerializer = ObjectMapper().registerKotlinModule()
-    var lastSequenceNum = initialSequenceNum
-    var lastTimeSent = System.currentTimeMillis() - heartbeatInterval - 100
+    discordClient.on<PresenceUpdateEvent> {
+        val gameData = presence.data.game
+        val userData = kord.getUser(Snowflake(user.id))
 
-    while (coroutineContext.isActive) {
-        val remainingWaitTime = (heartbeatInterval - (System.currentTimeMillis() - lastTimeSent))
-            .coerceAtLeast(0)
-        val shouldSkip = select<Boolean> {
-            sequenceChannel.onReceive { seqNum ->
-                lastSequenceNum = seqNum
-                true
-            }
-            onTimeout(remainingWaitTime) { false }
-        }
-        if (shouldSkip) continue
-
-        val nextHeartbeat = DiscordPayload(DiscordOpcode.HEARTBEAT, lastSequenceNum)
-        webSocketSession.send(objectSerializer.writeValueAsString(nextHeartbeat))
-        lastTimeSent = System.currentTimeMillis()
+        println("Presence update. User ${userData?.username} has activity: $gameData")
     }
-}
 
-suspend fun printMessagesToConsole(webSocketSession: ClientWebSocketSession, sequenceChannel: SendChannel<Int>) {
+    discordClient.login()
 }
